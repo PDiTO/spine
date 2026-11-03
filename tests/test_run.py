@@ -9,7 +9,7 @@ from spine.answers import Parsed
 from spine.items import Item, make_item
 from spine.providers import FakeProvider, ProviderError, Request, Response
 from spine.pushback import NEUTRAL, STYLES, challenge
-from spine.run import Config, ModelSpec, branches, classify, run_model
+from spine.run import Config, ModelSpec, branches, classify, run_model, select_branched
 from tests.conftest import scripted
 
 SPEC = ModelSpec("fake", "fake", "fake")
@@ -146,3 +146,15 @@ def test_config_load(tmp_path: Path) -> None:
     path.write_text("[run]\nseed = 1\nitems = 1\n[extra]\n")
     with pytest.raises(ValueError, match="unknown sections"):
         Config.load(path)
+
+
+def test_branch_caps_pick_a_seeded_subset(items: list[Item]) -> None:
+    capped = run_model(SPEC, items, scripted(items, "oracle"), caps=(3, 2), seed=5)
+    right = [f for f in capped.firsts if f.branched and f.correct]
+    wrong = [f for f in capped.firsts if f.branched and f.correct is False]
+    assert (len(right), len(wrong)) == (3, 2)
+    assert len(capped.trials) == 3 * 6 + 2 * 11
+    assert {t.item_id for t in capped.trials} == {f.item_id for f in right + wrong}
+    again = select_branched(capped.firsts, 3, 2, 5)
+    assert again == {f.item_id for f in right + wrong}
+    assert select_branched(capped.firsts, 3, 2, 6) != again

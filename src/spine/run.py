@@ -19,10 +19,11 @@ tag gets no second turn and is counted on its own.
 
 from __future__ import annotations
 
+import hashlib
 import tomllib
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal
 
@@ -51,8 +52,9 @@ class ModelSpec:
     concurrency: int = 4
     label: str = ""
     thinking: bool = True
-    # This model's difficulty window; the run's levels when unset.
+    # This model's difficulty window and turn-1 pool size; the run's when unset.
     levels: tuple[int, ...] | None = None
+    items: int | None = None
 
     @property
     def display(self) -> str:
@@ -68,6 +70,11 @@ class Config:
     levels: tuple[int, ...] = LEVELS
     bootstrap: int = 2000
     recordings: str = "recordings"
+    # How many first-turn-right and first-turn-wrong items get second turns. A
+    # model near the ceiling needs a big turn-1 pool to find enough wrong
+    # answers, and branching every right one would cost thousands of calls.
+    branch_right: int | None = None
+    branch_wrong: int | None = None
 
     @classmethod
     def load(cls, path: Path) -> Config:
@@ -76,14 +83,17 @@ class Config:
         if unknown := set(data) - allowed:
             raise ValueError(f"{path}: unknown sections {sorted(unknown)}")
         run = dict(data.get("run", {}))
-        known = {"seed", "items", "tasks", "levels", "bootstrap", "recordings"}
+        known = {
+            "seed", "items", "tasks", "levels", "bootstrap", "recordings", "branch_right",
+            "branch_wrong",
+        }  # fmt: skip
         if unknown := set(run) - known:
             raise ValueError(f"{path}: unknown keys in [run]: {sorted(unknown)}")
         models = []
         for m in data.get("models", []):
             keys = {
                 "name", "provider", "model", "effort", "concurrency", "label", "levels",
-                "thinking",
+                "thinking", "items",
             }  # fmt: skip
             if unknown := set(m) - keys:
                 raise ValueError(f"{path}: unknown model keys {sorted(unknown)}")
@@ -97,11 +107,14 @@ class Config:
             levels=tuple(run.get("levels", LEVELS)),
             bootstrap=int(run.get("bootstrap", 2000)),
             recordings=str(run.get("recordings", "recordings")),
+            branch_right=run.get("branch_right"),
+            branch_wrong=run.get("branch_wrong"),
         )
 
     def build_items(self, spec: ModelSpec | None = None) -> list[Item]:
         levels = spec.levels if spec is not None and spec.levels else self.levels
-        return build_items(self.seed, self.items, self.tasks, levels)
+        n = spec.items if spec is not None and spec.items else self.items
+        return build_items(self.seed, n, self.tasks, levels)
 
 
 @dataclass(frozen=True)
@@ -115,6 +128,24 @@ class FirstTurn:
     hedge: str | None
     correct: bool | None  # None when hedged or failed
     error: str | None = None
+    branched: bool = False  # whether this item got second turns
+
+
+def _rank(seed: int, item_id: str) -> str:
+    return hashlib.sha256(f"spine:{seed}:branch:{item_id}".encode()).hexdigest()
+
+
+def select_branched(
+    firsts: list[FirstTurn], cap_right: int | None, cap_wrong: int | None, seed: int
+) -> set[str]:
+    """A seeded random subset of right and of wrong first answers, up to each cap."""
+    out: set[str] = set()
+    for want, cap in ((True, cap_right), (False, cap_wrong)):
+        pool = sorted(
+            (f for f in firsts if f.correct is want), key=lambda f: _rank(seed, f.item_id)
+        )
+        out |= {f.item_id for f in (pool if cap is None else pool[:cap])}
+    return out
 
 
 @dataclass(frozen=True)
@@ -185,6 +216,8 @@ def run_model(
     workers: int | None = None,
     progress: Callable[[str], None] | None = None,
     second_turns: bool = True,
+    caps: tuple[int | None, int | None] = (None, None),
+    seed: int = 0,
 ) -> RunResult:
     """Run every item through turn 1 and all its turn-2 branches."""
     workers = workers or spec.concurrency
@@ -218,10 +251,15 @@ def run_model(
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         firsts = list(pool.map(first_turn, items))
+        chosen = (
+            select_branched([ft for ft, _, _ in firsts], *caps, seed) if second_turns else set()
+        )
+        firsts = [(replace(ft, branched=ft.item_id in chosen), p, t) for ft, p, t in firsts]
         jobs = [
             (item, ft, first_text, pb)
             for item, (ft, parsed, first_text) in zip(items, firsts, strict=True)
-            for pb in (branches(item, parsed) if second_turns else [])
+            if ft.branched
+            for pb in branches(item, parsed)
         ]
 
         def second_turn(job: tuple[Item, FirstTurn, str, Pushback]) -> Trial:

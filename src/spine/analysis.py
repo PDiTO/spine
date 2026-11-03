@@ -276,6 +276,8 @@ def model_stats(
         "wrong": sum(1 for f in firsts if f.correct is False),
         "hedged": sum(1 for f in firsts if f.correct is None and f.error is None),
         "errors": sum(1 for f in firsts if f.error is not None),
+        "branched_right": sum(1 for f in firsts if f.branched and f.correct),
+        "branched_wrong": sum(1 for f in firsts if f.branched and f.correct is False),
         "by_level": {
             str(lv): _share([f for f in firsts if f.level == lv])
             for lv in sorted({f.level for f in firsts})
