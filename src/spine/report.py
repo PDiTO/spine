@@ -38,6 +38,12 @@ def _pooled_by_style(
     return out
 
 
+def _recorded(path: Path) -> int:
+    if not path.exists():
+        return 0
+    return sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
+
+
 def build_report(
     cfg: Config,
     specs: list[ModelSpec],
@@ -61,6 +67,7 @@ def build_report(
             levels=[min(levels), max(levels)],
             outcome_mix=outcome_mix(r.trials),
             calls=len(r.firsts) + len(r.trials),
+            recorded_calls=_recorded(Path(cfg.recordings) / f"{spec.name}.jsonl"),
             tool_use_replies=sum(1 for t in r.trials if t.tool_events),
         )
         models.append(block)
@@ -71,6 +78,7 @@ def build_report(
         "bootstrap_draws": cfg.bootstrap,
         "tasks": list(cfg.tasks),
         "total_calls": sum(m["calls"] for m in models),
+        "total_recorded_calls": sum(m["recorded_calls"] for m in models),
         "models": models,
         "pooled_by_style": {s: {k: v.to_json() for k, v in d.items()} for s, d in pooled.items()},
         "headline": {
@@ -111,7 +119,9 @@ def render_markdown(summary: dict[str, Any], pooled: dict[str, dict[str, Est]]) 
         "separately. Intervals are 95% bootstrap intervals over items, "
         f"{summary['bootstrap_draws']} draws.",
         "",
-        f"Total model calls in the main run: {summary['total_calls']:,}.",
+        f"Model calls behind these numbers: {summary['total_calls']:,}. Calls recorded in the "
+        f"main run, including a few for branches that later fell out of the sample: "
+        f"{summary['total_recorded_calls']:,}.",
         "",
         "## Headline",
         "",

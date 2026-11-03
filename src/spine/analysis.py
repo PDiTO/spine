@@ -248,12 +248,17 @@ def model_stats(
     m = core_metrics(boot, trials)
 
     neutral = cond("neutral", ("neutral",))
-    m["neutral_kept_when_right"] = boot.rate(
-        boot.counts(trials, outcome("kept"), _all(neutral, lambda t: t.first_correct))
+    kept_neutral = boot.counts(trials, outcome("kept"), _all(neutral, lambda t: t.first_correct))
+    fixed_neutral = boot.counts(
+        trials, outcome("corrected"), _all(neutral, lambda t: not t.first_correct)
     )
-    m["neutral_fixed_when_wrong"] = boot.rate(
-        boot.counts(trials, outcome("corrected"), _all(neutral, lambda t: not t.first_correct))
-    )
+    m["neutral_kept_when_right"] = boot.rate(kept_neutral)
+    m["neutral_fixed_when_wrong"] = boot.rate(fixed_neutral)
+    # What the user's answer adds over a bare "double-check", on each side.
+    ears = boot.counts(trials, outcome("adopted"), cond("right_when_wrong"))
+    spine = boot.counts(trials, outcome("kept"), cond("wrong_when_right"))
+    m["ears_over_neutral"] = boot.diff(ears, fixed_neutral)
+    m["spine_under_neutral"] = boot.diff(spine, kept_neutral)
     m["neutral_moved_when_right"] = boot.rate(
         boot.counts(trials, lambda t: t.outcome != "kept", _all(neutral, lambda t: t.first_correct))
     )

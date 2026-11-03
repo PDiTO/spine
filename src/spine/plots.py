@@ -55,6 +55,16 @@ plt.rcParams.update(
 )
 
 
+# Where each model's name sits next to its point in the scatter, in points. Hand
+# placed for the published run so names don't sit on top of each other.
+LABEL_OFFSETS: dict[str, tuple[float, float, str]] = {
+    "Claude Sonnet 4.6": (-8, -16, "right"),
+    "Claude Haiku 5.5": (6, 10, "left"),
+    "GPT-6.1 Sol": (10, -2, "left"),
+    "Claude Opus 5.5": (10, -9, "left"),
+}
+
+
 def _save(fig: Any, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, format="svg", bbox_inches="tight", metadata={"Date": None})
@@ -79,8 +89,9 @@ def spine_vs_ears(summary: dict[str, Any], path: Path) -> None:
     fig, ax = plt.subplots(figsize=(7.2, 6.4))
     ax.plot([0, 1], [1, 0], color=INK_2, lw=1, ls=(0, (4, 3)), zorder=1)
     ax.text(
-        0.3, 0.74, "no discrimination:\nmoves the same whether\nthe user is right or wrong",
-        color=INK_2, fontsize=8.5, rotation=0, ha="center", va="center",
+        0.2, 0.47,
+        "dashed line: no discrimination,\nmoves the same whether\nthe user is right or wrong",
+        color=INK_2, fontsize=8.5, ha="center", va="center",
     )  # fmt: skip
     for x, y, label, ha, va in (
         (0.02, 0.98, "folds to anything", "left", "top"),
@@ -97,8 +108,8 @@ def spine_vs_ears(summary: dict[str, Any], path: Path) -> None:
         c = _colour(i)
         nk, nf = _m(m, "neutral_kept_when_right"), _m(m, "neutral_fixed_when_wrong")
         if nk["value"] is not None and nf["value"] is not None:
-            ax.plot([nk["value"], s["value"]], [nf["value"], e["value"]], color=c, lw=1,
-                    alpha=0.6, zorder=2)  # fmt: skip
+            ax.plot([nk["value"], s["value"]], [nf["value"], e["value"]], color=c, lw=0.8,
+                    ls=(0, (1, 2)), alpha=0.7, zorder=2)  # fmt: skip
             ax.scatter([nk["value"]], [nf["value"]], s=40, facecolor="white", edgecolor=c,
                        lw=1.5, marker=_marker(m), zorder=3)  # fmt: skip
         ax.errorbar(
@@ -108,7 +119,8 @@ def spine_vs_ears(summary: dict[str, Any], path: Path) -> None:
             fmt=_marker(m), ms=9, color=c, mec="white", mew=1.5, elinewidth=1.5, capsize=0,
             zorder=4,
         )  # fmt: skip
-        ax.annotate(m["label"], (s["value"], e["value"]), xytext=(8, 6),
+        dx, dy, ha = LABEL_OFFSETS.get(m["label"], (8, 6, "left"))
+        ax.annotate(m["label"], (s["value"], e["value"]), xytext=(dx, dy), ha=ha,
                     textcoords="offset points", fontsize=9, color=INK, zorder=5)  # fmt: skip
     ax.scatter([], [], s=40, facecolor="white", edgecolor=INK_2, label="neutral re-check only")
     ax.scatter([], [], s=60, color=INK_2, label="user asserts an answer (95% CI)")
@@ -140,7 +152,8 @@ def _dot_panel(
             ax.plot([est["lo"], est["hi"]], [y, y], color=_colour(i), lw=1.5, alpha=0.8)
             ax.plot(est["value"], y, _marker(m), color=_colour(i), ms=6, mec="white", mew=1)
     ax.set_yticks(range(len(cats)), [labels.get(c, c) for c in cats])
-    ax.invert_yaxis()
+    if not ax.yaxis_inverted():  # the panels share a y axis, so invert it once
+        ax.invert_yaxis()
     ax.set_xlim(-0.02, 1.02)
     ax.set_xticks([0, 0.25, 0.5, 0.75, 1], ["0%", "25%", "50%", "75%", "100%"])
     ax.grid(axis="x", color=GRID, lw=0.8)
@@ -244,7 +257,7 @@ def accuracy(summary: dict[str, Any], path: Path) -> None:
                 label=m["label"])  # fmt: skip
     ax.set_ylim(0, 1.03)
     ax.set_yticks([0, 0.25, 0.5, 0.75, 1], ["0%", "25%", "50%", "75%", "100%"])
-    ax.set_xticks(range(1, 15))
+    ax.set_xticks(range(1, 21))
     ax.set_xlabel("difficulty level")
     ax.set_title("First-turn accuracy by difficulty level, each model on its own window")
     ax.grid(color=GRID, lw=0.8)
