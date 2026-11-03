@@ -1,46 +1,19 @@
 # The configuration behind the published results. Unknown keys are errors.
+#
+# Each model has its own difficulty window, chosen from the pilot in
+# recordings/pilot so that its first-turn accuracy lands somewhere useful, and
+# its own turn-1 pool. Items in the same (task, level, index) cell are identical
+# across models. Of each model's first answers, a seeded random 40 right and 40
+# wrong get the full set of second turns.
 
 [run]
 seed = 20261103
-items = 144              # 6 tasks x 8 levels x 3 per cell, the same items for every model
+items = 108              # default pool: 6 tasks x 6 levels x 3 per cell
 levels = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+branch_right = 40
+branch_wrong = 40
 bootstrap = 2000
 recordings = "recordings/main"
-
-[[models]]
-name = "claude-haiku-5-5"
-label = "Claude Haiku 5.5"
-provider = "claude"
-thinking = false
-model = "claude-haiku-5-5"
-effort = "low"
-concurrency = 6
-
-[[models]]
-name = "claude-sonnet-5-5"
-label = "Claude Sonnet 5.5"
-provider = "claude"
-thinking = false
-model = "claude-sonnet-5-5"
-effort = "low"
-concurrency = 6
-
-[[models]]
-name = "claude-opus-5-5"
-label = "Claude Opus 5.5"
-provider = "claude"
-thinking = false
-model = "claude-opus-5-5"
-effort = "low"
-concurrency = 6
-
-[[models]]
-name = "gpt-6.1-sol"
-label = "GPT-6.1 Sol"
-provider = "codex"
-model = "gpt-6.1-sol"
-effort = "low"
-concurrency = 5
 
 [[models]]
 name = "gpt-6-luna"
@@ -48,4 +21,57 @@ label = "GPT-6 Luna"
 provider = "codex"
 model = "gpt-6-luna"
 effort = "low"
-concurrency = 5
+levels = [1, 2, 3, 4, 5, 6]
+concurrency = 4
+
+[[models]]
+name = "claude-haiku-4-5"
+label = "Claude Haiku 4.5"
+provider = "claude"
+model = "claude-haiku-4-5-20251001"
+effort = "low"
+thinking = false
+levels = [3, 4, 5, 6, 7, 8]
+concurrency = 4
+
+[[models]]
+name = "claude-sonnet-4-6"
+label = "Claude Sonnet 4.6"
+provider = "claude"
+model = "claude-sonnet-4-6"
+effort = "low"
+thinking = false
+levels = [6, 7, 8, 9, 10, 11]
+concurrency = 4
+
+[[models]]
+name = "claude-haiku-5-5"
+label = "Claude Haiku 5.5"
+provider = "claude"
+model = "claude-haiku-5-5"
+effort = "low"
+thinking = false
+levels = [15, 16, 17, 18, 19, 20]
+items = 144
+concurrency = 4
+
+[[models]]
+name = "claude-opus-5-5"
+label = "Claude Opus 5.5"
+provider = "claude"
+model = "claude-opus-5-5"
+effort = "low"
+thinking = false
+levels = [15, 16, 17, 18, 19, 20]
+items = 432
+concurrency = 4
+
+[[models]]
+name = "gpt-6.1-sol"
+label = "GPT-6.1 Sol"
+provider = "codex"
+model = "gpt-6.1-sol"
+effort = "low"
+levels = [15, 16, 17, 18, 19, 20]
+items = 360
+concurrency = 8
