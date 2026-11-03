@@ -53,8 +53,43 @@ def canonical(kind: Kind, value: object) -> str:
 
 
 def normalise(kind: Kind, text: str, choices: tuple[str, ...] = ()) -> str | None:
-    """Read a model's answer text as a canonical value, or None if it isn't one."""
-    s = text.strip().strip("*_`'\"").strip().rstrip(".").strip()
+    """Read a model's answer text as a canonical value, or None if it isn't one.
+
+    The tag should hold only the answer, but models often add a remark, as in
+    "2 — only Ben and Hugo are knights" or "86 (Gregorian calendar)". Those
+    still count when one value is unambiguous: a bracketed aside is dropped, the
+    part after a last "=" or before a dash, colon or semicolon is tried, and
+    failing that a lone number in the text is taken. "24, not 25" has two
+    numbers and stays unreadable.
+    """
+    s = _clean(text)
+    if not s:
+        return None
+    value = _strict(kind, s, choices)
+    if value is not None or kind in ("weekday", "name") or HEDGE_WORDS.search(s):
+        return value
+    s = re.sub(r"\([^)]*\)", " ", s).strip()
+    if "=" in s:
+        s = s.rsplit("=", 1)[1]
+    head = re.split(r"\s[—–-]\s|[—–:;]", s, maxsplit=1)[0]
+    for candidate in (s, head):
+        value = _strict(kind, _clean(candidate), choices)
+        if value is not None:
+            return value
+    pattern = _NUMBER if kind in ("int", "decimal") else _ISO_DATE
+    found = pattern.findall(s)
+    return _strict(kind, found[0], choices) if len(found) == 1 else None
+
+
+_NUMBER = re.compile(r"[-−]?\d{1,3}(?:,\d{3})+(?:\.\d+)?|[-−]?\d+(?:\.\d+)?")
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def _clean(text: str) -> str:
+    return text.strip().strip("*_`'\"").strip().rstrip(".").strip()
+
+
+def _strict(kind: Kind, s: str, choices: tuple[str, ...]) -> str | None:
     if not s:
         return None
     if kind in ("int", "decimal"):

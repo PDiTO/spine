@@ -19,6 +19,13 @@ from spine.answers import canonical, normalise, parse_reply
         ("12.5", None),
         ("about 12", None),
         ("", None),
+        ("2 — only Ben and Hugo are knights", "2"),
+        ("86 (Gregorian calendar, counting 1838 and 1894)", "86"),
+        ("3: Grace, Sam and Chloe are knights", "3"),
+        ("No—the correct answer is 1. Maya is the only knight", "1"),
+        ("123 × 4 = 492", "492"),
+        ("The program prints 24, not 25", None),
+        ("-7", "-7"),
     ],
 )
 def test_normalise_int(text: str, want: str | None) -> None:
@@ -34,7 +41,14 @@ def test_normalise_decimal() -> None:
 
 @pytest.mark.parametrize(
     "text",
-    ["2031-06-27", "27 June 2031", "June 27, 2031", "Friday, 27 June 2031", "27th June 2031"],
+    [
+        "2031-06-27",
+        "2031-06-27 (a Friday)",
+        "27 June 2031",
+        "June 27, 2031",
+        "Friday, 27 June 2031",
+        "27th June 2031",
+    ],
 )
 def test_normalise_date(text: str) -> None:
     assert normalise("date", text) == "2031-06-27"

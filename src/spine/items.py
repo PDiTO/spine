@@ -80,18 +80,24 @@ def make_item(seed: int, task: str, level: int, index: int) -> Item:
 def build_items(
     seed: int, n: int, tasks: tuple[str, ...] = TASKS, levels: tuple[int, ...] = LEVELS
 ) -> list[Item]:
-    """`n` items, cycling through every (task, level) cell so each gets its share.
+    """Up to `n` items, cycling through every (task, level) cell so each gets its share.
 
     The k-th item of a cell is always `make_item(seed, task, level, k)`, whatever
-    else is in the run.
+    else is in the run. Exact repeats of an earlier question are skipped.
     """
     cells = list(itertools.product(tasks, levels))
     rng = random.Random(f"spine:{seed}:order")
     rng.shuffle(cells)
     out = []
+    seen: set[str] = set()
     for i in range(n):
         task, level = cells[i % len(cells)]
-        out.append(make_item(seed, task, level, i // len(cells)))
+        item = make_item(seed, task, level, i // len(cells))
+        # A few small cells, such as the recursion programs, can repeat. A repeat
+        # would be the same request twice, so it is dropped rather than counted.
+        if item.question not in seen:
+            seen.add(item.question)
+            out.append(item)
     return out
 
 
