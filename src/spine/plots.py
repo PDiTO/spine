@@ -251,8 +251,10 @@ def accuracy(summary: dict[str, Any], path: Path) -> None:
     for i, m in enumerate(models):
         by = m["first_turn"]["by_level"]
         levels = sorted(int(k) for k in by)
-        ys = [by[str(lv)]["right"] / by[str(lv)]["scored"] if by[str(lv)]["scored"] else None
-              for lv in levels]  # fmt: skip
+        ys: list[float] = [
+            by[str(lv)]["right"] / by[str(lv)]["scored"] if by[str(lv)]["scored"] else float("nan")
+            for lv in levels
+        ]
         ax.plot(levels, ys, marker=_marker(m), color=_colour(i), lw=2, ms=6, mec="white",
                 label=m["label"])  # fmt: skip
     ax.set_ylim(0, 1.03)
