@@ -109,7 +109,10 @@ def run_all(cfg: Config, specs: list[ModelSpec], *, offline: bool) -> dict[str, 
     for spec in specs:
         rec = _recorder(rec_dir, spec, offline)
         items = cfg.build_items(spec)
-        results[spec.name] = run_model(spec, items, rec, progress=None if offline else print)
+        caps = (cfg.branch_right, cfg.branch_wrong)
+        results[spec.name] = run_model(
+            spec, items, rec, caps=caps, seed=cfg.seed, progress=None if offline else print
+        )
         if not offline:
             print(f"{spec.name}: {rec.calls} new calls, {rec.hits} replayed")
     return results
